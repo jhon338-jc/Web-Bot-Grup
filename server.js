@@ -1,4 +1,3 @@
-import { createCanvas } from 'canvas';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -250,102 +249,69 @@ async function callAI(prompt) {
 }
 
 // ============================================
-// STICKER GENERATOR - FALLBACK VERSION
+// STICKER GENERATOR (JIMP - PURE JS)
 // ============================================
 async function createSticker(text) {
-    const tempDir = join(__dirname, 'temp');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-    // Coba canvas dulu
     try {
-        const canvas = createCanvas(512, 512);
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, 512, 512);
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        let fontSize = 100;
-        ctx.font = `bold ${fontSize}px Arial`;
+        const Jimp = (await import('jimp')).default;
         
-        // Wrap text
-        const words = text.split(' ');
-        const maxWidth = 450;
-        let lines = [];
-        let currentLine = '';
+        const width = 512;
+        const height = 512;
         
-        for (const word of words) {
-            const testLine = currentLine ? currentLine + ' ' + word : word;
-            if (ctx.measureText(testLine).width > maxWidth && currentLine) {
-                lines.push(currentLine);
-                currentLine = word;
-            } else {
-                currentLine = testLine;
-            }
-        }
-        if (currentLine) lines.push(currentLine);
-        if (lines.length === 0) lines = [text];
-
-        // Adjust font size
-        while (fontSize > 15) {
-            ctx.font = `bold ${fontSize}px Arial`;
-            let ok = true;
-            for (const l of lines) {
-                if (ctx.measureText(l).width > maxWidth) { ok = false; break; }
-            }
-            if (ok && lines.length * fontSize * 1.3 <= 450) break;
-            fontSize -= 5;
-        }
-
-        ctx.font = `bold ${fontSize}px Arial`;
-        const lh = fontSize * 1.3;
-        const th = lines.length * lh;
-        let y = (512 - th) / 2 + lh / 2;
-
-        for (const line of lines) {
-            ctx.fillText(line, 256, y);
-            y += lh;
-        }
-
-        const pngBuf = canvas.toBuffer('image/png');
-        const pngPath = join(tempDir, `st_${Date.now()}.png`);
-        fs.writeFileSync(pngPath, pngBuf);
-
-        // Convert WebP
+        // Bikin gambar putih
+        const image = new Jimp(width, height, 0xFFFFFFFF);
+        
+        // Load font
+        const font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
+        const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
+        
+        // Pilih font berdasarkan panjang teks
+        const selectedFont = text.length > 30 ? fontSmall : font;
+        
+        // Ukur teks
+        const textWidth = Jimp.measureText(selectedFont, text);
+        const textHeight = Jimp.measureTextHeight(selectedFont, text, width - 40);
+        
+        // Posisi tengah
+        const x = Math.max(10, (width - textWidth) / 2);
+        const y = Math.max(10, (height - textHeight) / 2);
+        
+        // Print teks
+        image.print(selectedFont, x, y, {
+            text: text,
+            alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+            alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
+        }, width - 20, height - 20);
+        
+        // Save PNG
+        const tempDir = join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        
+        const tempPng = join(tempDir, `sticker_${Date.now()}.png`);
+        const tempWebp = join(tempDir, `sticker_${Date.now()}.webp`);
+        
+        await image.writeAsync(tempPng);
+        
+        // Convert to WebP
         try {
             const sharp = (await import('sharp')).default;
-            const webpPath = join(tempDir, `st_${Date.now()}.webp`);
-            await sharp(pngPath).resize(512, 512).webp({ quality: 90 }).toFile(webpPath);
-            setTimeout(() => { try { fs.unlinkSync(pngPath); fs.unlinkSync(webpPath); } catch {} }, 5000);
-            return { buffer: fs.readFileSync(webpPath), filepath: webpPath };
-        } catch (e) {
-            return { buffer: pngBuf, filepath: pngPath };
-        }
-    } catch (canvasErr) {
-        console.log('Canvas error, using simple text sticker');
-        
-        // FALLBACK: Bikin stiker text simpel pake sharp aja
-        try {
-            const sharp = (await import('sharp')).default;
-            const svgText = `
-            <svg width="512" height="512">
-                <rect width="512" height="512" fill="white"/>
-                <text x="256" y="256" text-anchor="middle" dominant-baseline="middle" 
-                      font-family="Arial" font-size="60" font-weight="bold" fill="black">
-                    ${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-                </text>
-            </svg>`;
+            await sharp(tempPng)
+                .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+                .webp({ quality: 95 })
+                .toFile(tempWebp);
             
-            const webpPath = join(tempDir, `st_${Date.now()}.webp`);
-            await sharp(Buffer.from(svgText)).resize(512, 512).webp({ quality: 90 }).toFile(webpPath);
-            setTimeout(() => { try { fs.unlinkSync(webpPath); } catch {} }, 5000);
-            return { buffer: fs.readFileSync(webpPath), filepath: webpPath };
-        } catch (svgErr) {
-            console.log('SVG error too');
-            throw svgErr;
+            setTimeout(() => {
+                try { fs.unlinkSync(tempPng); } catch {}
+                try { fs.unlinkSync(tempWebp); } catch {}
+            }, 5000);
+            
+            return { buffer: fs.readFileSync(tempWebp), filepath: tempWebp };
+        } catch (sharpError) {
+            return { buffer: fs.readFileSync(tempPng), filepath: tempPng };
         }
+    } catch (error) {
+        console.error('❌ Sticker error:', error.message);
+        throw error;
     }
 }
 
