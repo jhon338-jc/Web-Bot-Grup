@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JHON338 BOT - Multi-Device Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #060606;
+            --card: #120808;
+            --card2: #1a0c0c;
+            --red: #e74c3c;
+            --red2: #c0392b;
+            --red3: #ff6b6b;
+            --gold: #f39c12;
+            --green: #2ecc71;
+            --text: #e8d8d8;
+            --text2: #b09898;
+            --border: rgba(231, 76, 60, 0.12);
+            --radius: 14px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.5);
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image: 
+                radial-gradient(ellipse at 50% 0%, rgba(231,76,60,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(231,76,60,0.04) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .container { max-width: 640px; margin: 0 auto; padding: 14px 16px; }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 24px 0 18px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .header .logo {
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: -1.5px;
+            background: linear-gradient(135deg, var(--red3) 0%, var(--red) 50%, var(--red2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s ease-in-out infinite;
+            background-size: 200% 200%;
+        }
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .header .sub {
+            font-size: 10px;
+            color: var(--text2);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        .card:hover {
+            border-color: rgba(231, 76, 60, 0.25);
+        }
+        .card-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--red3);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: var(--red);
+            border-radius: 2px;
+        }
+
+        /* Status Bar */
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--card2);
+            border-radius: 30px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: var(--transition);
+        }
+        .dot.on {
+            background: var(--green);
+            box-shadow: 0 0 14px rgba(46, 204, 113, 0.6);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .dot.off {
+            background: var(--red);
+            box-shadow: 0 0 14px rgba(231, 76, 60, 0.6);
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 14px rgba(46, 204, 113, 0.6); }
+            50% { box-shadow: 0 0 24px rgba(46, 204, 113, 0.9); }
+        }
+        .status-text {
+            font-size: 13px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 11px 16px;
+            border: none;
+            border-radius: 22px;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-start {
+            background: linear-gradient(135deg, var(--red), var(--red2));
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(231, 76, 60, 0.2);
+        }
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(231, 76, 60, 0.35);
+        }
+        .btn-stop {
+            background: transparent;
+            color: var(--red3);
+            border: 1.5px solid var(--red);
+        }
+        .btn-stop:hover:not(:disabled) {
+            background: rgba(231, 76, 60, 0.08);
+        }
+        .btn-switch {
+            background: transparent;
+            color: var(--gold);
+            border: 1.5px solid var(--gold);
+        }
+        .btn-switch:hover {
+            background: rgba(243, 156, 18, 0.08);
+        }
+        .btn-danger {
+            background: transparent;
+            color: #ff4757;
+            border: 1.5px solid #ff4757;
+            font-size: 10px;
+        }
+        .btn-danger:hover {
+            background: rgba(255, 71, 87, 0.08);
+        }
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* QR */
+        .qr-box {
+            background: #ffffff;
+            padding: 18px;
+            border-radius: var(--radius);
+            text-align: center;
+            margin: 10px 0;
+        }
+        .qr-box img {
+            max-width: 190px;
+            width: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+        .qr-hint {
+            font-size: 10px;
+            color: var(--text2);
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-item {
+            background: var(--card2);
+            border-radius: var(--radius);
+            padding: 14px 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+        .stat-item:hover {
+            border-color: rgba(231, 76, 60, 0.3);
+        }
+        .stat-val {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--red3);
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text2);
+            margin-top: 4px;
+        }
+
+        /* Device List */
+        .device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .device-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--card2);
+            border-radius: 10px;
+            border: 1.5px solid transparent;
+            transition: var(--transition);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .device-item:hover {
+            border-color: rgba(231, 76, 60, 0.4);
+            background: rgba(231, 76, 60, 0.03);
+        }
+        .device-item.active {
+            border-color: var(--green);
+            background: rgba(46, 204, 113, 0.04);
+        }
+        .device-item .dev-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .device-item .dev-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .device-item .dev-num {
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .device-item .dev-name {
+            color: var(--text2);
+            font-size: 10px;
+            margin-top: 1px;
+        }
+        .device-item .dev-badge {
+            font-size: 9px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .dev-badge.act {
+            background: rgba(46, 204, 113, 0.2);
+            color: var(--green);
+        }
+        .dev-badge.old {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text2);
+        }
+
+        /* Groups */
+        .group-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .group-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 14px;
+            background: var(--card2);
+            border-radius: 10px;
+            border: 1.5px solid transparent;
+            transition: var(--transition);
+            font-size: 12px;
+        }
+        .group-item.allowed {
+            border-color: rgba(46, 204, 113, 0.4);
+            background: rgba(46, 204, 113, 0.03);
+        }
+        .group-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--red);
+            cursor: pointer;
+            flex-shrink: 0;
+            border-radius: 4px;
+        }
+        .group-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .group-info strong {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 13px;
+        }
+        .group-info small {
+            color: var(--text2);
+            font-size: 10px;
+        }
+        .badge-on {
+            font-size: 9px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: rgba(46, 204, 113, 0.2);
+            color: var(--green);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* Log */
+        .log-box {
+            background: #030303;
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 10px 12px;
+            max-height: 160px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 10px;
+            line-height: 1.6;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.015);
+            word-break: break-all;
+        }
+        .log-time {
+            color: var(--text2);
+            margin-right: 8px;
+            font-size: 9px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            padding: 12px 20px;
+            border-radius: 24px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            animation: slideIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            max-width: 300px;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(120%); opacity: 0; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(231, 76, 60, 0.3); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(231, 76, 60, 0.5); }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container { padding: 10px 12px; }
+            .header .logo { font-size: 26px; }
+            .btn { font-size: 10px; padding: 10px 12px; }
+            .stat-val { font-size: 24px; }
+            .stats-grid { gap: 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">🤖 JHON338 BOT</div>
+            <div class="sub">WhatsApp Multi-Device Dashboard</div>
+        </div>
+
+        <!-- Status -->
+        <div class="status-row">
+            <div class="dot off" id="statusDot"></div>
+            <span class="status-text" id="statusText">Disconnected</span>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="btn-row">
+            <button class="btn btn-start" id="btnStart" onclick="startBot()">▶ Start Bot</button>
+            <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled>⏹ Stop</button>
+            <button class="btn btn-switch" id="btnSwitch" onclick="switchDevice()">🔄 Ganti Nomor</button>
+        </div>
+
+        <!-- QR Code -->
+        <div class="card" id="qrCard" style="display:none">
+            <div class="card-title">📱 Scan QR Code</div>
+            <div class="qr-box" id="qrBox"><p style="color:#999;font-size:13px">Waiting for QR...</p></div>
+            <div class="qr-hint">Buka WhatsApp → Linked Devices → Link a Device</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="card" id="statsCard" style="display:none">
+            <div class="card-title">📊 Statistics</div>
+            <div class="stats-grid">
+                <div class="stat-item"><div class="stat-val" id="statGroups">0</div><div class="stat-lbl">Total Groups</div></div>
+                <div class="stat-item"><div class="stat-val" id="statAllowed">0/5</div><div class="stat-lbl">Allowed</div></div>
+                <div class="stat-item"><div class="stat-val" id="statName">-</div><div class="stat-lbl">Bot Name</div></div>
+                <div class="stat-item"><div class="stat-val" id="statNumber">-</div><div class="stat-lbl">Number</div></div>
+            </div>
+        </div>
+
+        <!-- Device History -->
+        <div class="card" id="deviceCard">
+            <div class="card-title">📱 Devices History</div>
+            <div class="device-list" id="deviceList">
+                <div class="device-item" style="color:var(--text2);justify-content:center;cursor:default">
+                    <span>No devices registered yet</span>
+                </div>
+            </div>
+            <button class="btn btn-danger" onclick="forgetAllDevices()" style="width:100%;margin-top:8px">
+                🗑 Clear All Devices
+            </button>
+        </div>
+
+        <!-- Groups -->
+        <div class="card" id="groupsCard" style="display:none">
+            <div class="card-title">👥 Groups (Max 5)</div>
+            <div class="group-list" id="groupList">
+                <p style="color:#666;font-size:11px;text-align:center;padding:10px">Loading groups...</p>
+            </div>
+            <button class="btn btn-start" onclick="saveGroups()" style="width:100%;margin-top:8px">
+                💾 Save Selected Groups
+            </button>
+        </div>
+
+        <!-- Console Log -->
+        <div class="card">
+            <div class="card-title">📋 Console Log</div>
+            <div class="log-box" id="logBox"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let allGroups = [];
+        let allowedGroups = [];
+        let devices = [];
+        let activeDevice = null;
+
+        // Load from localStorage
+        try {
+            devices = JSON.parse(localStorage.getItem('jhon_devices') || '[]');
+            activeDevice = localStorage.getItem('jhon_active') || null;
+        } catch(e) {
+            devices = [];
+            activeDevice = null;
+        }
+
+        const $ = (id) => document.getElementById(id);
+
+        function log(msg, color = '#b09898') {
+            const box = $('logBox');
+            const t = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            box.innerHTML += `<div class="log-entry"><span class="log-time">[${t}]</span><span style="color:${color}">${msg}</span></div>`;
+            box.scrollTop = box.scrollHeight;
+            while (box.children.length > 100) box.removeChild(box.firstChild);
+        }
+
+        function toast(msg, bg = '#e74c3c') {
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.style.background = bg;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => {
+                t.style.animation = 'slideOut 0.3s ease forwards';
+                setTimeout(() => t.remove(), 300);
+            }, 2500);
+        }
+
+        function saveDevices() {
+            localStorage.setItem('jhon_devices', JSON.stringify(devices));
+            localStorage.setItem('jhon_active', activeDevice);
+            renderDevices();
+        }
+
+        function addDevice(number, name) {
+            const exists = devices.find(d => d.number === number);
+            if (!exists) {
+                devices.push({
+                    number: number,
+                    name: name || 'Unknown',
+                    added: new Date().toISOString()
+                });
+            } else {
+                exists.name = name || exists.name;
+                exists.added = new Date().toISOString();
+            }
+            activeDevice = number;
+            saveDevices();
+            log(`📱 Device registered: ${number}`, '#2ecc71');
+        }
+
+        function renderDevices() {
+            const list = $('deviceList');
+            if (!devices || devices.length === 0) {
+                list.innerHTML = '<div class="device-item" style="color:var(--text2);justify-content:center;cursor:default">📱 No devices registered yet</div>';
+                return;
+            }
+            list.innerHTML = devices.map(d => `
+                <div class="device-item ${d.number === activeDevice ? 'active' : ''}" onclick="switchToDevice('${d.number}')" title="Click to switch to this device">
+                    <span class="dev-icon">📱</span>
+                    <div class="dev-info">
+                        <div class="dev-num">+${d.number}</div>
+                        <div class="dev-name">${d.name || 'Unknown'} • ${new Date(d.added).toLocaleDateString('id-ID')}</div>
+                    </div>
+                    <span class="dev-badge ${d.number === activeDevice ? 'act' : 'old'}">
+                        ${d.number === activeDevice ? '● ACTIVE' : '○ INACTIVE'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        async function switchToDevice(number) {
+            if (number === activeDevice) {
+                toast('Device already active!', '#f39c12');
+                return;
+            }
+            if (!confirm(`Switch to device +${number}?\nBot will restart and show new QR.`)) return;
+            
+            log(`🔄 Switching to +${number}...`, '#f39c12');
+            activeDevice = number;
+            saveDevices();
+            
+            socket.emit('stopBot');
+            await new Promise(r => setTimeout(r, 1500));
+            socket.emit('setDevice', number);
+            
+            setTimeout(() => {
+                socket.emit('startBot');
+            }, 500);
+        }
+
+        function switchDevice() {
+            const num = prompt('Enter new WhatsApp number:\n(With country code, numbers only)\n\nExample: 6285775137463');
+            if (!num) return;
+            
+            if (!num.match(/^\d{10,15}$/)) {
+                toast('Invalid number! Use digits only (10-15 digits).', '#ff4757');
+                return;
+            }
+            
+            if (!confirm(`Register & switch to new number +${num}?\nCurrent session will be stopped.`)) return;
+            
+            log(`🔄 Switching to new device: ${num}`, '#f39c12');
+            activeDevice = num;
+            
+            socket.emit('stopBot');
+            setTimeout(() => {
+                socket.emit('setDevice', num);
+                setTimeout(() => socket.emit('startBot'), 500);
+            }, 1500);
+        }
+
+        function forgetAllDevices() {
+            if (!confirm('⚠️ Hapus SEMUA riwayat device?\n\nSemua session akan dihapus permanen!')) return;
+            
+            devices = [];
+            activeDevice = null;
+            saveDevices();
+            socket.emit('stopBot');
+            
+            $('statusDot').classList.add('off');
+            $('statusDot').classList.remove('on');
+            $('statusText').textContent = 'Disconnected';
+            $('btnStart').disabled = false;
+            $('btnStop').disabled = true;
+            $('statsCard').style.display = 'none';
+            $('groupsCard').style.display = 'none';
+            $('qrCard').style.display = 'none';
+            
+            toast('All devices cleared!', '#2ecc71');
+            log('🗑 All devices cleared', '#ff4757');
+        }
+
+        function startBot() {
+            socket.emit('startBot');
+            $('btnStart').disabled = true;
+            $('qrCard').style.display = 'block';
+            log('🚀 Starting bot...', '#f39c12');
+        }
+
+        function stopBot() {
+            if (!confirm('Stop the bot?\nYou can restart anytime.')) return;
+            socket.emit('stopBot');
+            log('🛑 Stopping bot...', '#ff4757');
+        }
+
+        function saveGroups() {
+            const sel = [];
+            document.querySelectorAll('.gc:checked').forEach(cb => sel.push(cb.value));
+            
+            if (sel.length > 5) {
+                toast('Maximum 5 groups allowed!', '#ff4757');
+                return;
+            }
+            
+            socket.emit('updateGroups', sel);
+            toast(`${sel.length} group(s) saved!`, '#2ecc71');
+            log(`💾 ${sel.length} groups saved`, '#2ecc71');
+        }
+
+        function renderGroups() {
+            const list = $('groupList');
+            if (!allGroups || allGroups.length === 0) {
+                list.innerHTML = '<p style="color:#666;font-size:11px;text-align:center;padding:10px">No groups found</p>';
+                return;
+            }
+            list.innerHTML = allGroups.map(g => `
+                <div class="group-item ${allowedGroups.includes(g.id) ? 'allowed' : ''}">
+                    <input type="checkbox" class="gc" value="${g.id}" 
+                        ${allowedGroups.includes(g.id) ? 'checked' : ''}
+                        ${!allowedGroups.includes(g.id) && allowedGroups.length >= 5 ? 'disabled' : ''}>
+                    <div class="group-info">
+                        <strong>👥 ${g.name || 'Unknown Group'}</strong>
+                        <small>${g.participants || '?'} members • ${g.id.split('@')[0].slice(0, 10)}...</small>
+                    </div>
+                    ${allowedGroups.includes(g.id) ? '<span class="badge-on">✓ ON</span>' : ''}
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // SOCKET EVENTS
+        // ============================================
+        socket.on('connect', () => {
+            log('🔌 Connected to server', '#2ecc71');
+        });
+
+        socket.on('disconnect', () => {
+            log('🔌 Disconnected from server', '#ff4757');
+            $('statusDot').classList.add('off');
+            $('statusDot').classList.remove('on');
+            $('statusText').textContent = 'Server Disconnected';
+        });
+
+        socket.on('qr', (data) => {
+            $('qrBox').innerHTML = `<img src="${data.qr}" alt="QR Code" onerror="this.parentElement.innerHTML='<p style=color:#e74c3c>QR Error - Refresh page</p>'">`;
+            $('qrCard').style.display = 'block';
+            log('📱 QR Code ready - Scan now!', '#2ecc71');
+            toast('📱 Scan QR Code!', '#2ecc71');
+        });
+
+        socket.on('status', (data) => {
+            if (data.connected) {
+                $('statusDot').classList.add('on');
+                $('statusDot').classList.remove('off');
+                $('statusText').textContent = `🟢 Connected • ${data.botName || 'Bot'} (${data.botNumber || 'N/A'})`;
+                $('btnStart').disabled = true;
+                $('btnStop').disabled = false;
+                $('qrCard').style.display = 'none';
+                $('statsCard').style.display = 'block';
+                $('groupsCard').style.display = 'block';
+                
+                $('statGroups').textContent = data.totalGroups || 0;
+                $('statAllowed').textContent = `${allowedGroups.length}/5`;
+                $('statName').textContent = data.botName || '-';
+                $('statNumber').textContent = data.botNumber || '-';
+                
+                if (data.groups) {
+                    allGroups = data.groups;
+                    renderGroups();
+                }
+                if (data.botNumber) {
+                    addDevice(data.botNumber, data.botName);
+                }
+                
+                log(`✅ Connected as ${data.botName || 'Bot'} (${data.botNumber})`, '#2ecc71');
+                toast('✅ Bot Connected!', '#2ecc71');
+            } else {
+                $('statusDot').classList.add('off');
+                $('statusDot').classList.remove('on');
+                $('statusText').textContent = '🔴 Disconnected';
+                $('btnStart').disabled = false;
+                $('btnStop').disabled = true;
+                
+                if (!data.reconnecting) {
+                    log('❌ Bot disconnected', '#ff4757');
+                }
+            }
+        });
+
+        socket.on('update', (data) => {
+            if (data.allowedGroups) {
+                allowedGroups = data.allowedGroups;
+                $('statAllowed').textContent = `${allowedGroups.length}/5`;
+                renderGroups();
+            }
+        });
+
+        socket.on('groups', (groups) => {
+            allGroups = groups || [];
+            renderGroups();
+            if (groups && groups.length > 0) {
+                log(`📊 ${groups.length} groups loaded`, '#f39c12');
+            }
+        });
+
+        socket.on('message', (data) => {
+            const colors = {
+                success: '#2ecc71',
+                error: '#ff4757',
+                warning: '#f39c12',
+                info: '#b09898'
+            };
+            log(data.text, colors[data.type] || '#b09898');
+        });
+
+        // ============================================
+        // INIT
+        // ============================================
+        renderDevices();
+        log('🚀 JHON338 Dashboard Ready', '#e74c3c');
+        log(`📱 ${devices.length} device(s) in history`, '#b09898');
+        
+        if (activeDevice) {
+            log(`📱 Last active: +${activeDevice}`, '#f39c12');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+node_modules/
+sessions/
+sessions_*/
+temp/
+config.json
+assets/
+font/
+fonts/
+.auth_info_baileys/
+*.log
