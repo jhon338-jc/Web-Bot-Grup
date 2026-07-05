@@ -36,7 +36,12 @@ const API_KEYS = {
 // ============================================
 const app = express();
 const server = createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { 
+    cors: { 
+        origin: "*",
+        methods: ["GET", "POST"]
+    } 
+});
 
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -380,22 +385,12 @@ async function startBot() {
             await fetchGroups();
         }
 
-        // ============================================
-        // FIX: STOP BOT BENARAN MATI (GAK NYALA SENDIRI)
-        // ============================================
         if (connection === 'close') {
             isReady = false;
             const code = lastDisconnect?.error?.output?.statusCode;
             console.log('❌ Disconnected:', code);
             io.emit('status', { connected: false, reconnecting: false });
-
-            // HANYA reconnect kalau disconnect tiba-tiba (connection lost)
-            if (code === DisconnectReason.connectionLost || code === DisconnectReason.restartRequired) {
-                io.emit('message', { type: 'warning', text: '⚠️ Connection lost, reconnecting in 10s...' });
-                setTimeout(() => startBot(), 10000);
-            } else {
-                io.emit('message', { type: 'info', text: '🛑 Bot stopped.' });
-            }
+            io.emit('message', { type: 'info', text: '🛑 Bot disconnected. Click Start to reconnect.' });
         }
     });
 
@@ -421,8 +416,7 @@ async function startBot() {
 
         if (allowedGroups.length < maxGroups && !allowedGroups.includes(from)) {
             allowedGroups.push(from);
-            // Save ke config
-            fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2));
+            try { fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2)); } catch {}
             io.emit('update', { allowedGroups });
             console.log(`✅ Auto-added: ${from}`);
         }
@@ -540,8 +534,6 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('settings', { ...botSettings, allowedGroups, maxGroups });
-    
-    // FIX: Kirim allowedGroups pas connect
     socket.emit('update', { allowedGroups });
 
     socket.on('startBot', () => {
@@ -553,7 +545,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // FIX: Stop bot beneran mati
     socket.on('stopBot', () => {
         isReady = false;
         if (sock) { 
@@ -577,14 +568,13 @@ io.on('connection', (socket) => {
     socket.on('updateSettings', (s) => {
         botSettings = { ...botSettings, ...s };
         maxGroups = s.maxGroups || 5;
-        fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2));
+        try { fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2)); } catch {}
         socket.emit('message', { type: 'success', text: '✅ Settings saved!' });
     });
 
-    // FIX: Save groups permanen
     socket.on('updateGroups', (groups) => {
         allowedGroups = groups.slice(0, maxGroups);
-        fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2));
+        try { fs.writeFileSync(configPath, JSON.stringify({ allowedGroups, maxGroups, botSettings }, null, 2)); } catch {}
         socket.emit('update', { allowedGroups });
         socket.emit('message', { type: 'success', text: `✅ ${allowedGroups.length} groups saved!` });
         console.log(`💾 Groups saved: ${allowedGroups.length} groups`);
@@ -603,6 +593,11 @@ io.on('connection', (socket) => {
 // ============================================
 // ROUTES
 // ============================================
+// Health check for Railway
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', connected: isReady });
+});
+
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'public', 'index.html')));
 app.get('/api/status', (req, res) => res.json({
     connected: isReady,
@@ -624,8 +619,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`📱 Multi-Device Support: ON`);
     console.log(`👥 Max Groups: ${maxGroups}`);
     console.log(`💾 Groups saved to: config.json`);
+    console.log('🟢 Server ready. Click "Start Bot" to begin.');
     console.log('='.repeat(50));
 });
-
-// Auto-start
-startBot();
