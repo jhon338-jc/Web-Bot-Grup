@@ -249,66 +249,89 @@ async function callAI(prompt) {
 }
 
 // ============================================
-// STICKER GENERATOR (JIMP - PURE JS)
+// STICKER GENERATOR (SHARP SVG + ARIAL FONT)
 // ============================================
 async function createSticker(text) {
     try {
-        const Jimp = (await import('jimp')).default;
+        const sharp = (await import('sharp')).default;
         
-        const width = 512;
-        const height = 512;
+        // Baca font Arial Narrow
+        const fontPath = join(__dirname, 'fonts', 'ARIALN.ttf');
+        let fontBase64 = '';
         
-        // Bikin gambar putih
-        const image = new Jimp(width, height, 0xFFFFFFFF);
+        if (fs.existsSync(fontPath)) {
+            fontBase64 = fs.readFileSync(fontPath).toString('base64');
+        }
         
-        // Load font
-        const font = await Jimp.loadFont(Jimp.FONT_SANS_64_BLACK);
-        const fontSmall = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
+        // Bungkus teks
+        const words = text.split(' ');
+        let lines = [];
+        let currentLine = '';
         
-        // Pilih font berdasarkan panjang teks
-        const selectedFont = text.length > 30 ? fontSmall : font;
+        for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            if (testLine.length > 18 && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) lines.push(currentLine);
+        if (lines.length === 0) lines = [text];
         
-        // Ukur teks
-        const textWidth = Jimp.measureText(selectedFont, text);
-        const textHeight = Jimp.measureTextHeight(selectedFont, text, width - 40);
+        // Font size menyesuaikan jumlah baris
+        const fontSize = lines.length > 4 ? 60 : lines.length > 3 ? 80 : lines.length > 2 ? 100 : lines.length > 1 ? 130 : 160;
+        const lineHeight = fontSize * 1.25;
+        const totalHeight = lines.length * lineHeight;
+        const startY = (512 - totalHeight) / 2 + fontSize * 0.85;
         
-        // Posisi tengah
-        const x = Math.max(10, (width - textWidth) / 2);
-        const y = Math.max(10, (height - textHeight) / 2);
+        // Bikin text elements dengan font Arial Narrow
+        const textElements = lines.map((line, i) => {
+            const escapedLine = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            const y = startY + i * lineHeight;
+            return `<text x="256" y="${y}" text-anchor="middle" font-family="'Arial Narrow', Arial, sans-serif" font-size="${fontSize}" font-weight="bold" fill="black">${escapedLine}</text>`;
+        }).join('\n');
         
-        // Print teks
-        image.print(selectedFont, x, y, {
-            text: text,
-            alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-            alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE
-        }, width - 20, height - 20);
+        // Font face CSS kalau font ada
+        const fontFace = fontBase64 ? 
+            `<style>
+                @font-face {
+                    font-family: 'Arial Narrow';
+                    src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
+                }
+            </style>` : '';
         
-        // Save PNG
+        // SVG
+        const svg = `
+        <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+            ${fontFace}
+            <rect width="512" height="512" fill="white"/>
+            ${textElements}
+        </svg>`;
+        
         const tempDir = join(__dirname, 'temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
         
-        const tempPng = join(tempDir, `sticker_${Date.now()}.png`);
         const tempWebp = join(tempDir, `sticker_${Date.now()}.webp`);
         
-        await image.writeAsync(tempPng);
+        await sharp(Buffer.from(svg))
+            .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+            .webp({ quality: 95, lossless: true })
+            .toFile(tempWebp);
         
-        // Convert to WebP
-        try {
-            const sharp = (await import('sharp')).default;
-            await sharp(tempPng)
-                .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
-                .webp({ quality: 95 })
-                .toFile(tempWebp);
-            
-            setTimeout(() => {
-                try { fs.unlinkSync(tempPng); } catch {}
-                try { fs.unlinkSync(tempWebp); } catch {}
-            }, 5000);
-            
-            return { buffer: fs.readFileSync(tempWebp), filepath: tempWebp };
-        } catch (sharpError) {
-            return { buffer: fs.readFileSync(tempPng), filepath: tempPng };
-        }
+        const webpBuffer = fs.readFileSync(tempWebp);
+        
+        setTimeout(() => {
+            try { fs.unlinkSync(tempWebp); } catch {}
+        }, 5000);
+        
+        return { buffer: webpBuffer, filepath: tempWebp };
+        
     } catch (error) {
         console.error('❌ Sticker error:', error.message);
         throw error;
