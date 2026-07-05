@@ -249,16 +249,36 @@ async function callAI(prompt) {
 }
 
 // ============================================
-// STICKER GENERATOR (SHARP SVG + ARIAL FONT)
+// STICKER GENERATOR (AUTO DOWNLOAD FONT)
 // ============================================
 async function createSticker(text) {
     try {
         const sharp = (await import('sharp')).default;
+        const axios = (await import('axios')).default;
         
-        // Baca font Arial Narrow
+        // Path font
         const fontPath = join(__dirname, 'fonts', 'ARIALN.ttf');
-        let fontBase64 = '';
+        const fontDir = join(__dirname, 'fonts');
         
+        // Bikin folder fonts kalau belum ada
+        if (!fs.existsSync(fontDir)) fs.mkdirSync(fontDir, { recursive: true });
+        
+        // Download font kalau belum ada
+        if (!fs.existsSync(fontPath)) {
+            console.log('📥 Downloading font...');
+            try {
+                const res = await axios.get('https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/Font/ARIALN.ttf', {
+                    responseType: 'arraybuffer'
+                });
+                fs.writeFileSync(fontPath, Buffer.from(res.data));
+                console.log('✅ Font downloaded!');
+            } catch (e) {
+                console.log('⚠️ Font download failed, using default');
+            }
+        }
+        
+        // Baca font
+        let fontBase64 = '';
         if (fs.existsSync(fontPath)) {
             fontBase64 = fs.readFileSync(fontPath).toString('base64');
         }
@@ -280,39 +300,25 @@ async function createSticker(text) {
         if (currentLine) lines.push(currentLine);
         if (lines.length === 0) lines = [text];
         
-        // Font size menyesuaikan jumlah baris
+        // Font size
         const fontSize = lines.length > 4 ? 60 : lines.length > 3 ? 80 : lines.length > 2 ? 100 : lines.length > 1 ? 130 : 160;
         const lineHeight = fontSize * 1.25;
         const totalHeight = lines.length * lineHeight;
         const startY = (512 - totalHeight) / 2 + fontSize * 0.85;
         
-        // Bikin text elements dengan font Arial Narrow
+        // Text elements
         const textElements = lines.map((line, i) => {
-            const escapedLine = line
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
+            const escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             const y = startY + i * lineHeight;
             return `<text x="256" y="${y}" text-anchor="middle" font-family="'Arial Narrow', Arial, sans-serif" font-size="${fontSize}" font-weight="bold" fill="black">${escapedLine}</text>`;
         }).join('\n');
         
-        // Font face CSS kalau font ada
+        // Font face
         const fontFace = fontBase64 ? 
-            `<style>
-                @font-face {
-                    font-family: 'Arial Narrow';
-                    src: url(data:font/ttf;base64,${fontBase64}) format('truetype');
-                }
-            </style>` : '';
+            `<style>@font-face{font-family:'Arial Narrow';src:url(data:font/ttf;base64,${fontBase64}) format('truetype');}</style>` : '';
         
         // SVG
-        const svg = `
-        <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-            ${fontFace}
-            <rect width="512" height="512" fill="white"/>
-            ${textElements}
-        </svg>`;
+        const svg = `<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">${fontFace}<rect width="512" height="512" fill="white"/>${textElements}</svg>`;
         
         const tempDir = join(__dirname, 'temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -326,9 +332,7 @@ async function createSticker(text) {
         
         const webpBuffer = fs.readFileSync(tempWebp);
         
-        setTimeout(() => {
-            try { fs.unlinkSync(tempWebp); } catch {}
-        }, 5000);
+        setTimeout(() => { try { fs.unlinkSync(tempWebp); } catch {} }, 5000);
         
         return { buffer: webpBuffer, filepath: tempWebp };
         
