@@ -250,94 +250,102 @@ async function callAI(prompt) {
 }
 
 // ============================================
-// STICKER GENERATOR (WebP STICKER ASLI WA)
+// STICKER GENERATOR - FALLBACK VERSION
 // ============================================
 async function createSticker(text) {
-    try {        
-        const width = 512;
-        const height = 512;
-        const padding = 40;
-        const maxWidth = width - padding * 2;
-        const maxHeight = height - padding * 2;
+    const tempDir = join(__dirname, 'temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-        const canvas = createCanvas(width, height);
+    // Coba canvas dulu
+    try {
+        const canvas = createCanvas(512, 512);
         const ctx = canvas.getContext('2d');
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillRect(0, 0, 512, 512);
         ctx.fillStyle = '#000000';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        let fontSize = 200;
-        let lines = [];
+        let fontSize = 100;
+        ctx.font = `bold ${fontSize}px Arial`;
         
-        while (fontSize > 20) {
-            ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-            const words = text.split(' ');
-            lines = [];
-            let currentLine = '';
-            for (const word of words) {
-                const testLine = currentLine ? currentLine + ' ' + word : word;
-                if (ctx.measureText(testLine).width > maxWidth && currentLine) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
+        // Wrap text
+        const words = text.split(' ');
+        const maxWidth = 450;
+        let lines = [];
+        let currentLine = '';
+        
+        for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
             }
-            if (currentLine) lines.push(currentLine);
-            
-            let totalHeight = lines.length * fontSize * 1.3;
-            let allFit = true;
-            for (const line of lines) {
-                if (ctx.measureText(line).width > maxWidth) { allFit = false; break; }
-            }
-            if (allFit && totalHeight <= maxHeight) break;
-            fontSize -= 4;
         }
-
-        if (fontSize < 20) fontSize = 20;
+        if (currentLine) lines.push(currentLine);
         if (lines.length === 0) lines = [text];
 
-        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-        const lineHeight = fontSize * 1.3;
-        const totalHeight = lines.length * lineHeight;
-        let startY = (height - totalHeight) / 2 + lineHeight / 2;
-
-        for (let i = 0; i < lines.length; i++) {
-            ctx.fillText(lines[i], width / 2, startY + i * lineHeight);
+        // Adjust font size
+        while (fontSize > 15) {
+            ctx.font = `bold ${fontSize}px Arial`;
+            let ok = true;
+            for (const l of lines) {
+                if (ctx.measureText(l).width > maxWidth) { ok = false; break; }
+            }
+            if (ok && lines.length * fontSize * 1.3 <= 450) break;
+            fontSize -= 5;
         }
 
-        const pngBuffer = canvas.toBuffer('image/png');
-        const tempDir = join(__dirname, 'temp');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        ctx.font = `bold ${fontSize}px Arial`;
+        const lh = fontSize * 1.3;
+        const th = lines.length * lh;
+        let y = (512 - th) / 2 + lh / 2;
 
-        const tempPng = join(tempDir, `sticker_${Date.now()}.png`);
-        const tempWebp = join(tempDir, `sticker_${Date.now()}.webp`);
-        fs.writeFileSync(tempPng, pngBuffer);
+        for (const line of lines) {
+            ctx.fillText(line, 256, y);
+            y += lh;
+        }
 
+        const pngBuf = canvas.toBuffer('image/png');
+        const pngPath = join(tempDir, `st_${Date.now()}.png`);
+        fs.writeFileSync(pngPath, pngBuf);
+
+        // Convert WebP
         try {
             const sharp = (await import('sharp')).default;
-            await sharp(tempPng)
-                .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
-                .webp({ quality: 95, lossless: true })
-                .toFile(tempWebp);
-        } catch (sharpError) {
-            console.log('⚠️ Sharp not available');
-            return { buffer: pngBuffer, filepath: tempPng, isPng: true };
+            const webpPath = join(tempDir, `st_${Date.now()}.webp`);
+            await sharp(pngPath).resize(512, 512).webp({ quality: 90 }).toFile(webpPath);
+            setTimeout(() => { try { fs.unlinkSync(pngPath); fs.unlinkSync(webpPath); } catch {} }, 5000);
+            return { buffer: fs.readFileSync(webpPath), filepath: webpPath };
+        } catch (e) {
+            return { buffer: pngBuf, filepath: pngPath };
         }
-
-        const webpBuffer = fs.readFileSync(tempWebp);
-        setTimeout(() => {
-            try { fs.unlinkSync(tempPng); } catch {}
-            try { fs.unlinkSync(tempWebp); } catch {}
-        }, 5000);
-
-        return { buffer: webpBuffer, filepath: tempWebp, isPng: false };
-    } catch (error) {
-        console.error('❌ Sticker error:', error.message);
-        throw error;
+    } catch (canvasErr) {
+        console.log('Canvas error, using simple text sticker');
+        
+        // FALLBACK: Bikin stiker text simpel pake sharp aja
+        try {
+            const sharp = (await import('sharp')).default;
+            const svgText = `
+            <svg width="512" height="512">
+                <rect width="512" height="512" fill="white"/>
+                <text x="256" y="256" text-anchor="middle" dominant-baseline="middle" 
+                      font-family="Arial" font-size="60" font-weight="bold" fill="black">
+                    ${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+                </text>
+            </svg>`;
+            
+            const webpPath = join(tempDir, `st_${Date.now()}.webp`);
+            await sharp(Buffer.from(svgText)).resize(512, 512).webp({ quality: 90 }).toFile(webpPath);
+            setTimeout(() => { try { fs.unlinkSync(webpPath); } catch {} }, 5000);
+            return { buffer: fs.readFileSync(webpPath), filepath: webpPath };
+        } catch (svgErr) {
+            console.log('SVG error too');
+            throw svgErr;
+        }
     }
 }
 
