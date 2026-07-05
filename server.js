@@ -1,3 +1,4 @@
+import { createCanvas } from 'canvas';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -252,9 +253,7 @@ async function callAI(prompt) {
 // STICKER GENERATOR (WebP STICKER ASLI WA)
 // ============================================
 async function createSticker(text) {
-    try {
-        const { createCanvas } = await import('@napi-rs/canvas');
-        
+    try {        
         const width = 512;
         const height = 512;
         const padding = 40;
