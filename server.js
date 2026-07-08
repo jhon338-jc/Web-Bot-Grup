@@ -19,7 +19,10 @@ import axios from 'axios';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 
+const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -91,7 +94,7 @@ if (fs.existsSync(configPath)) {
 // ============================================
 // FOLDER SETUP
 // ============================================
-['temp', 'sessions', 'fonts', 'assets', 'tmp'].forEach(d => {
+['temp', 'sessions', 'fonts', 'assets', 'tmp', 'quoteanime', 'assets/quoteanime/fonts'].forEach(d => {
     const p = join(__dirname, d);
     if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 });
@@ -110,7 +113,7 @@ const mistralClient = new OpenAI({ baseURL: 'https://api.mistral.ai/v1', apiKey:
 const SYSTEM_PROMPT = `Kamu adalah JHON BOT WA GRUP AI - asisten WhatsApp paling keren, pinter, dan gaul! 🚀🔥\n\nSkill: Tahu segalanya.\nAturan: Jawab SINGKAT, PADAT, JELAS, PAKE BAHASA GAUL. LANGSUNG JAWAB!\n\nGASKEUN! 🔥🚀`;
 
 // ============================================
-// MENU TEXT - UDAH DI TAMBAHIN .iqc
+// MENU TEXT - UDAH DI TAMBAHIN SEMUA FITUR
 // ============================================
 const MENU_TEKS = (senderName) => `
 🤖 *JHON338 BOT*
@@ -127,6 +130,9 @@ Hai @${senderName} 👋
  🧹 .removewm
  🖼️ .removebg
  💬 .iqc
+ 🎬 .brat
+ 🎬 .bratvid
+ 📝 .quote
 
 👑 wa.me/6285775137463
 🚀 JHON338 GROUP BOT
@@ -567,6 +573,488 @@ async function generateIQC(text, timeStr = "16.34", imgUrl = null, emojis = ["�
 }
 
 // ============================================
+// BRAT CANVAS FEATURE
+// ============================================
+const BRAT_FONT_URL = 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/Font/ARIALN.ttf';
+const BRAT_FONT_PATH = join(__dirname, 'fonts', 'ARIALN.ttf');
+
+const BRAT_THEMES = {
+    black: { bg: '#000000', text: '#ffffff' },
+    white: { bg: '#ffffff', text: '#000000' },
+    green: { bg: '#8ace00', text: '#000000' }
+};
+
+async function ensureBratFont() {
+    if (!existsSync(BRAT_FONT_PATH)) {
+        const buf = await downloadFile(BRAT_FONT_URL);
+        await writeFile(BRAT_FONT_PATH, buf);
+    }
+    GlobalFonts.registerFromPath(BRAT_FONT_PATH, 'ArialNarrow');
+}
+
+async function generateBratCanvas(text, theme = 'white', blur = 0) {
+    const selectedTheme = BRAT_THEMES[theme] || BRAT_THEMES.white;
+    const blurAmount = [0, 1, 2, 3].includes(blur) ? blur : 0;
+
+    const size = 1000;
+    const padding = 80;
+    const lineGap = 20;
+    const maxWidth = size - padding * 2;
+    const maxHeight = size - padding * 2;
+
+    await ensureBratFont();
+    await loadAppleEmojiMap();
+
+    const canvas = createCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+
+    // Hitung font size
+    const emojiRegex = EMOJI_REGEX;
+    function measureText(ctx, text, fontSize) {
+        const parts = text.split(emojiRegex);
+        let w = 0;
+        for (const part of parts) {
+            if (!part) continue;
+            emojiRegex.lastIndex = 0;
+            if (emojiRegex.test(part)) w += fontSize;
+            else w += ctx.measureText(part).width;
+            emojiRegex.lastIndex = 0;
+        }
+        return w;
+    }
+
+    function wrapText2(ctx, text, maxWidth, fontSize) {
+        ctx.font = `${fontSize}px ArialNarrow`;
+        const words = text.split(' ');
+        const lines = [];
+        let cur = '';
+        for (const word of words) {
+            const test = cur ? cur + ' ' + word : word;
+            if (measureText(ctx, test, fontSize) > maxWidth && cur) {
+                lines.push(cur);
+                cur = word;
+            } else {
+                cur = test;
+            }
+        }
+        if (cur) lines.push(cur);
+        return lines;
+    }
+
+    function fitsAt(ctx, text, fontSize, maxWidth, maxHeight, lineGap) {
+        const lines = wrapText2(ctx, text, maxWidth, fontSize);
+        const longestWord = Math.max(...text.split(' ').map(w => measureText(ctx, w, fontSize)));
+        const totalHeight = lines.length * (fontSize + lineGap) - lineGap;
+        return longestWord <= maxWidth && totalHeight <= maxHeight;
+    }
+
+    function findBestFontSize(ctx, text, maxWidth, maxHeight, lineGap) {
+        let lo = 10;
+        let hi = 700;
+        let best = lo;
+        while (lo <= hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (fitsAt(ctx, text, mid, maxWidth, maxHeight, lineGap)) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return best;
+    }
+
+    const fontSize = findBestFontSize(ctx, text, maxWidth, maxHeight, lineGap);
+    const lines = wrapText2(ctx, text, maxWidth, fontSize);
+
+    ctx.fillStyle = selectedTheme.bg;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = selectedTheme.text;
+    ctx.font = `${fontSize}px ArialNarrow`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    ctx.save();
+    if (blurAmount > 0) ctx.filter = `blur(${blurAmount}px)`;
+
+    const totalTextHeight = lines.length * (fontSize + lineGap) - lineGap;
+    let y = (size - totalTextHeight) / 2;
+    for (const line of lines) {
+        await drawTextWithEmojis(ctx, line, padding, y, fontSize);
+        y += fontSize + lineGap;
+    }
+
+    ctx.restore();
+
+    const outPath = join(process.cwd(), `temp`, `brat-${Date.now()}.png`);
+    await writeFile(outPath, await canvas.encode('png'));
+    return outPath;
+}
+
+// ============================================
+// BRAT VIDEO FEATURE
+// ============================================
+function tokenize(text) {
+    return text.split(' ').filter(Boolean);
+}
+
+async function generateBratVideo({
+    text = 'Halo Guys',
+    theme = 'white',
+    blur = 0,
+    format = 'mp4',
+    frameDuration = 0.4,
+    holdDuration = 1.2,
+    maxWordPerLayer = 1,
+    maxWordBeforeReset = 0,
+    fastProgress = true
+} = {}) {
+    const blurAmount = [0, 1, 2, 3].includes(blur) ? blur : 0;
+    const step = Math.max(1, maxWordPerLayer);
+    const resetSchedule = Array.isArray(maxWordBeforeReset)
+        ? maxWordBeforeReset.map(n => Math.max(0, n))
+        : [Math.max(0, maxWordBeforeReset)];
+    const getResetAt = (batchIndex) => resetSchedule[batchIndex % resetSchedule.length];
+
+    await ensureBratFont();
+    await loadAppleEmojiMap();
+
+    const tokens = tokenize(text);
+    if (!tokens.length) throw new Error('Teks kosong');
+
+    const tmpDir = join(process.cwd(), 'temp', `brat-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+
+    const partialTexts = [];
+    let batchStart = 0;
+    let batchIndex = 0;
+    while (batchStart < tokens.length) {
+        const resetAt = getResetAt(batchIndex);
+        const batchEnd = resetAt > 0 ? Math.min(batchStart + resetAt, tokens.length) : tokens.length;
+        for (let i = batchStart + step; i < batchEnd; i += step) {
+            partialTexts.push(tokens.slice(batchStart, i).join(' '));
+        }
+        partialTexts.push(tokens.slice(batchStart, batchEnd).join(' '));
+        batchStart = batchEnd;
+        batchIndex++;
+    }
+
+    const renderFrame = async (partialText, index) => {
+        const canvas = await createBratCanvas(partialText, theme, blurAmount);
+        const buffer = await canvas.encode('png');
+        const framePath = join(tmpDir, `frame-${String(index + 1).padStart(4, '0')}.png`);
+        await writeFile(framePath, buffer);
+        return framePath;
+    };
+
+    async function createBratCanvas(text, theme, blurAmount) {
+        const selectedTheme = BRAT_THEMES[theme] || BRAT_THEMES.white;
+        const size = 1000;
+        const padding = 80;
+        const lineGap = 20;
+        const maxWidth = size - padding * 2;
+        const maxHeight = size - padding * 2;
+
+        const canvas = createCanvas(size, size);
+        const ctx = canvas.getContext('2d');
+
+        const emojiRegex = EMOJI_REGEX;
+        function measureText(ctx, text, fontSize) {
+            const parts = text.split(emojiRegex);
+            let w = 0;
+            for (const part of parts) {
+                if (!part) continue;
+                emojiRegex.lastIndex = 0;
+                if (emojiRegex.test(part)) w += fontSize;
+                else w += ctx.measureText(part).width;
+                emojiRegex.lastIndex = 0;
+            }
+            return w;
+        }
+
+        function wrapText2(ctx, text, maxWidth, fontSize) {
+            ctx.font = `${fontSize}px ArialNarrow`;
+            const words = text.split(' ');
+            const lines = [];
+            let cur = '';
+            for (const word of words) {
+                const test = cur ? cur + ' ' + word : word;
+                if (measureText(ctx, test, fontSize) > maxWidth && cur) {
+                    lines.push(cur);
+                    cur = word;
+                } else {
+                    cur = test;
+                }
+            }
+            if (cur) lines.push(cur);
+            return lines;
+        }
+
+        function fitsAt(ctx, text, fontSize, maxWidth, maxHeight, lineGap) {
+            const lines = wrapText2(ctx, text, maxWidth, fontSize);
+            const longestWord = Math.max(...text.split(' ').map(w => measureText(ctx, w, fontSize)));
+            const totalHeight = lines.length * (fontSize + lineGap) - lineGap;
+            return longestWord <= maxWidth && totalHeight <= maxHeight;
+        }
+
+        function findBestFontSize(ctx, text, maxWidth, maxHeight, lineGap) {
+            let lo = 10;
+            let hi = 700;
+            let best = lo;
+            while (lo <= hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                if (fitsAt(ctx, text, mid, maxWidth, maxHeight, lineGap)) {
+                    best = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            return best;
+        }
+
+        const fontSize = findBestFontSize(ctx, text, maxWidth, maxHeight, lineGap);
+        const lines = wrapText2(ctx, text, maxWidth, fontSize);
+
+        ctx.fillStyle = selectedTheme.bg;
+        ctx.fillRect(0, 0, size, size);
+
+        ctx.fillStyle = selectedTheme.text;
+        ctx.font = `${fontSize}px ArialNarrow`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        ctx.save();
+        if (blurAmount > 0) ctx.filter = `blur(${blurAmount}px)`;
+
+        const totalTextHeight = lines.length * (fontSize + lineGap) - lineGap;
+        let y = (size - totalTextHeight) / 2;
+        for (const line of lines) {
+            await drawTextWithEmojis(ctx, line, padding, y, fontSize);
+            y += fontSize + lineGap;
+        }
+
+        ctx.restore();
+        return canvas;
+    }
+
+    let framePaths;
+    if (fastProgress) {
+        framePaths = await Promise.all(partialTexts.map((t, i) => renderFrame(t, i)));
+    } else {
+        framePaths = [];
+        for (let i = 0; i < partialTexts.length; i++) {
+            framePaths.push(await renderFrame(partialTexts[i], i));
+        }
+    }
+
+    const durations = framePaths.map((_, i) =>
+        i === framePaths.length - 1 ? holdDuration : frameDuration
+    );
+
+    const manifestLines = [];
+    for (let i = 0; i < framePaths.length; i++) {
+        manifestLines.push(`file '${framePaths[i].replace(/'/g, "'\\''")}'`);
+        manifestLines.push(`duration ${durations[i]}`);
+    }
+    manifestLines.push(`file '${framePaths[framePaths.length - 1].replace(/'/g, "'\\''")}'`);
+    const concatPath = join(tmpDir, 'concat.txt');
+    await writeFile(concatPath, manifestLines.join('\n'));
+
+    const ext = format === 'gif' ? 'gif' : 'mp4';
+    const outPath = join(process.cwd(), `temp`, `bratvid-${Date.now()}.${ext}`);
+
+    if (format === 'gif') {
+        await execFileAsync('ffmpeg', [
+            '-y',
+            '-f', 'concat', '-safe', '0', '-i', concatPath,
+            '-vf', 'fps=10,scale=1000:1000:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer',
+            '-loop', '0',
+            outPath
+        ]);
+    } else {
+        await execFileAsync('ffmpeg', [
+            '-y',
+            '-f', 'concat', '-safe', '0', '-i', concatPath,
+            '-vf', 'scale=1000:1000',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '18',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            outPath
+        ]);
+    }
+
+    setTimeout(() => {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    }, 5000);
+
+    return outPath;
+}
+
+// ============================================
+// QUOTE ANIME FEATURE
+// ============================================
+const QUOTE_BACKGROUNDS = {
+    1: {
+        name: 'l',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/L.png',
+        textZone: { x: 775, y: 56, w: 456, h: 1102 },
+        usernameZone: { x: 890, y: 1167, w: 228, h: 50 },
+        usernameFontSize: 28
+    },
+    2: {
+        name: 'gojo',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/gok.png',
+        textZone: { x: 755, y: 68, w: 466, h: 1027 },
+        usernameZone: { x: 863, y: 1108, w: 249, h: 50 },
+        usernameFontSize: 28
+    },
+    3: {
+        name: 'yuji',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/cc.png',
+        textZone: { x: 35, y: 68, w: 466, h: 1027 },
+        usernameZone: { x: 133, y: 1108, w: 249, h: 50 },
+        usernameFontSize: 28
+    },
+    4: {
+        name: 'denji',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/denji.png',
+        textZone: { x: 655, y: 68, w: 512, h: 1083 },
+        usernameZone: { x: 795, y: 1152, w: 249, h: 50 },
+        usernameFontSize: 28
+    },
+    5: {
+        name: 'thorfin',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/thorfin.png',
+        textZone: { x: 65, y: 54, w: 489, h: 992 },
+        usernameZone: { x: 162, y: 1042, w: 249, h: 50 },
+        usernameFontSize: 28
+    },
+    6: {
+        name: 'naruto',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/Naruto.png',
+        textZone: { x: 40, y: 56, w: 481, h: 1065 },
+        usernameZone: { x: 170, y: 1126, w: 228, h: 50 },
+        usernameFontSize: 28
+    },
+    7: {
+        name: 'light',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/LIghtyagami.png',
+        textZone: { x: 38, y: 56, w: 493, h: 941 },
+        usernameZone: { x: 170, y: 1025, w: 228, h: 50 },
+        usernameFontSize: 28
+    },
+    8: {
+        name: 'higuruma',
+        url: 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/qca/higuruma.png',
+        textZone: { x: 755, y: 68, w: 424, h: 920 },
+        usernameZone: { x: 840, y: 993, w: 249, h: 50 },
+        usernameFontSize: 28
+    }
+};
+
+const QUOTE_FONT_URL = 'https://raw.githubusercontent.com/Ditzzx-vibecoder/Assets/main/Font/ARIALN.ttf';
+const QUOTE_FONT_PATH = join(__dirname, 'fonts', 'quote-arialn.ttf');
+const INTER_FONT_URL = 'https://github.com/rsms/inter/raw/refs/heads/master/docs/font-files/Inter-Medium.woff2';
+const INTER_FONT_PATH = join(__dirname, 'fonts', 'Inter-Medium.woff2');
+
+async function generateQuote(text, username, backgroundId = 8) {
+    const bg = QUOTE_BACKGROUNDS[backgroundId] || QUOTE_BACKGROUNDS[8];
+    const ASSETS_DIR = join(__dirname, 'assets', 'quoteanime');
+    const FONTS_DIR = join(ASSETS_DIR, 'fonts');
+    const bgLocal = join(ASSETS_DIR, `${bg.name}.png`);
+
+    await mkdir(FONTS_DIR, { recursive: true });
+
+    async function downloadQuoteFile(url, dest) {
+        if (!existsSync(dest)) {
+            const res = await axios.get(url, { responseType: 'arraybuffer', headers: { 'User-Agent': 'Mozilla/5.0' } });
+            await writeFile(dest, Buffer.from(res.data));
+        }
+    }
+
+    await downloadQuoteFile(QUOTE_FONT_URL, QUOTE_FONT_PATH);
+    await downloadQuoteFile(INTER_FONT_URL, INTER_FONT_PATH);
+    await downloadQuoteFile(bg.url, bgLocal);
+
+    GlobalFonts.registerFromPath(QUOTE_FONT_PATH, 'ArialNarrow');
+    GlobalFonts.registerFromPath(INTER_FONT_PATH, 'Inter');
+
+    const CANVAS_SIZE = { width: 1254, height: 1254 };
+    const canvas = createCanvas(CANVAS_SIZE.width, CANVAS_SIZE.height);
+    const ctx = canvas.getContext('2d');
+
+    const bgImg = await loadImage(bgLocal);
+    ctx.drawImage(bgImg, 0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
+
+    // Draw quote text
+    ctx.save();
+    ctx.fillStyle = '#111111';
+    ctx.textBaseline = 'middle';
+    
+    const textZone = bg.textZone;
+    const fontSize = 75;
+    ctx.font = `400 ${fontSize}px ArialNarrow`;
+    
+    function wrapQuoteText(ctx, text, maxWidth) {
+        const out = [];
+        text.split('\n').forEach(p => {
+            let cur = '';
+            p.split(' ').forEach(w => {
+                const t = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(t).width > maxWidth && cur) { out.push(cur); cur = w; }
+                else cur = t;
+            });
+            out.push(cur);
+        });
+        return out;
+    }
+
+    const lines = wrapQuoteText(ctx, text, textZone.w);
+    const lh = fontSize * 1.2;
+    const totalHeight = lines.length * lh;
+    const startY = textZone.y + (textZone.h - totalHeight) / 2 + lh / 2;
+
+    lines.forEach((l, i) => {
+        const y = startY + i * lh;
+        const words = l.split(' ');
+        if (words.length === 1) {
+            ctx.textAlign = 'center';
+            ctx.fillText(l, textZone.x + textZone.w / 2, y);
+        } else {
+            const wordWidths = words.map(w => ctx.measureText(w).width);
+            const totalWordsWidth = wordWidths.reduce((a, b) => a + b, 0);
+            const spaceWidth = (textZone.w - totalWordsWidth) / (words.length - 1);
+            ctx.textAlign = 'left';
+            let cx = textZone.x;
+            words.forEach((w, i) => {
+                ctx.fillText(w, cx, y);
+                cx += wordWidths[i] + spaceWidth;
+            });
+        }
+    });
+    ctx.restore();
+
+    // Draw username
+    ctx.save();
+    ctx.fillStyle = '#121212';
+    ctx.textBaseline = 'middle';
+    const usernameX = textZone.x + textZone.w / 2;
+    const usernameY = startY + (lines.length - 1) * lh + lh / 2 + 40;
+    ctx.font = `500 ${bg.usernameFontSize}px Inter`;
+    ctx.textAlign = 'center';
+    ctx.fillText(username, usernameX, usernameY);
+    ctx.restore();
+
+    const outPath = join(process.cwd(), `temp`, `quote-${Date.now()}.png`);
+    await writeFile(outPath, await canvas.encode('png'));
+    return outPath;
+}
+
+// ============================================
 // DOWNLOAD FUNCTIONS
 // ============================================
 async function downloadIG(url) {
@@ -740,6 +1228,76 @@ async function startBot() {
                         return;
                     } catch (e) { 
                         reply = `❌ *Gagal bikin IQC:* ${e.message}`; 
+                    }
+                    break;
+
+                case 'brat':
+                    if (!input) {
+                        reply = '❌ *Cara pakai:* .brat [teks]\n\nContoh: .brat Halo Guys Nama Saya 🎨';
+                        break;
+                    }
+                    await sock.sendMessage(from, { text: '⏳ *Bikin gambar BRAT...*' });
+                    try {
+                        const resultPath = await generateBratCanvas(input, 'white', 0);
+                        await sock.sendMessage(from, { 
+                            image: { url: resultPath },
+                            caption: '✅ *BRAT Canvas!*'
+                        });
+                        setTimeout(() => { try { fs.unlinkSync(resultPath); } catch {} }, 5000);
+                        return;
+                    } catch (e) { 
+                        reply = `❌ *Gagal bikin BRAT:* ${e.message}`; 
+                    }
+                    break;
+
+                case 'bratvid':
+                    if (!input) {
+                        reply = '❌ *Cara pakai:* .bratvid [teks]\n\nContoh: .bratvid Halo Guys 🎬';
+                        break;
+                    }
+                    await sock.sendMessage(from, { text: '⏳ *Bikin video BRAT...* (bisa lama)' });
+                    try {
+                        const resultPath = await generateBratVideo({
+                            text: input,
+                            theme: 'white',
+                            blur: 0,
+                            format: 'mp4',
+                            frameDuration: 0.4,
+                            holdDuration: 1.2,
+                            maxWordPerLayer: 1,
+                            maxWordBeforeReset: 0,
+                            fastProgress: true
+                        });
+                        await sock.sendMessage(from, { 
+                            video: { url: resultPath },
+                            caption: '✅ *BRAT Video!*'
+                        });
+                        setTimeout(() => { try { fs.unlinkSync(resultPath); } catch {} }, 5000);
+                        return;
+                    } catch (e) { 
+                        reply = `❌ *Gagal bikin BRAT Video:* ${e.message}`; 
+                    }
+                    break;
+
+                case 'quote':
+                    if (!input) {
+                        reply = '❌ *Cara pakai:* .quote [teks] | [username]\n\nContoh: .quote "Hukum tidak selalu adil" | - Higuruma';
+                        break;
+                    }
+                    await sock.sendMessage(from, { text: '⏳ *Bikin quote card anime...*' });
+                    try {
+                        const parts = input.split('|').map(s => s.trim());
+                        const quoteText = parts[0] || 'Kosong';
+                        const username = parts[1] || 'User';
+                        const resultPath = await generateQuote(quoteText, username, 8);
+                        await sock.sendMessage(from, { 
+                            image: { url: resultPath },
+                            caption: '✅ *Quote Card!*'
+                        });
+                        setTimeout(() => { try { fs.unlinkSync(resultPath); } catch {} }, 5000);
+                        return;
+                    } catch (e) { 
+                        reply = `❌ *Gagal bikin Quote:* ${e.message}`; 
                     }
                     break;
                     
