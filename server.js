@@ -110,7 +110,7 @@ const mistralClient = new OpenAI({ baseURL: 'https://api.mistral.ai/v1', apiKey:
 const SYSTEM_PROMPT = `Kamu adalah JHON BOT WA GRUP AI - asisten WhatsApp paling keren, pinter, dan gaul! 🚀🔥\n\nSkill: Tahu segalanya.\nAturan: Jawab SINGKAT, PADAT, JELAS, PAKE BAHASA GAUL. LANGSUNG JAWAB!\n\nGASKEUN! 🔥🚀`;
 
 // ============================================
-// MENU TEXT
+// MENU TEXT - UDAH DI TAMBAHIN .iqc
 // ============================================
 const MENU_TEKS = (senderName) => `
 🤖 *JHON338 BOT*
@@ -126,7 +126,6 @@ Hai @${senderName} 👋
  📥 .ig
  🧹 .removewm
  🖼️ .removebg
- 🎬 .bratvid
  💬 .iqc
 
 👑 wa.me/6285775137463
@@ -723,7 +722,6 @@ async function startBot() {
                         
                         let resultPath;
                         if (imageUrl) {
-                            // Kalo ada gambar, upload dulu
                             const FormData = (await import('form-data')).default;
                             const form = new FormData();
                             form.append('files[]', imageUrl, 'img.png');
