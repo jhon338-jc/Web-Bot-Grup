@@ -301,26 +301,135 @@ async function startBot() {
             await sock.sendPresenceUpdate('composing', from);
             let reply = '';
             switch (cmd) {
-                case 'menu': reply = MENU_TEKS(senderName); break;
-                case 'ask': if (!input) { reply = '❌ .ask [pertanyaan]'; break; } await sock.sendMessage(from, { text: '🤔 *Mikir...*' }); const ai = await callAI(input); reply = ai.success ? `🤖 *${ai.provider}*\n\n${ai.response}` : ai.response; break;
+                case 'menu': 
+                    reply = MENU_TEKS(senderName); 
+                    break;
+                    
+                case 'ask': 
+                    if (!input) { 
+                        reply = '❌ .ask [pertanyaan]'; 
+                        break; 
+                    } 
+                    await sock.sendMessage(from, { text: '🤔 *Mikir...*' }); 
+                    const ai = await callAI(input); 
+                    reply = ai.success ? `🤖 *${ai.provider}*\n\n${ai.response}` : ai.response; 
+                    break;
+                    
                 case 'stiker':
-                    if (!input) { reply = '❌ .stiker [teks]'; break; }
-                    await sock.sendMessage(from, { text: '⏳ *Bikin stiker...*' });
+                case 'sticker':
+                    if (!input) { 
+                        reply = '❌ *Cara pakai:* .stiker [teks]\n\nContoh: .stiker kakak\n.stiker jangan lupa bahagia'; 
+                        break; 
+                    }
+                    await sock.sendMessage(from, { text: '⏳ *Bikin stiker nih...*' });
                     try {
                         const sticker = await createSticker(input);
-                        await sock.sendMessage(from, { sticker: { url: sticker.filepath } });
+                        await sock.sendMessage(from, { 
+                            sticker: { url: sticker.filepath },
+                            caption: `✅ *Stiker berhasil dibuat!*\n📝 "${input}"`
+                        });
                         return;
-                    } catch (e) { reply = `❌ Gagal: ${e.message}`; }
+                    } catch (e) { 
+                        reply = `❌ *Gagal bikin stiker:* ${e.message}`; 
+                    }
                     break;
-                case 'ig': if (!input?.includes('instagram.com')) { reply = '❌ Link IG invalid'; break; } await sock.sendMessage(from, { text: '⏳ *Downloading...*' }); try { const ig = await downloadIG(input); if (ig.medias.length > 0) { const m = ig.medias[0]; const cap = `📥 *IG* | ${ig.info.username}`; if (m.type === 'image') await sock.sendMessage(from, { image: { url: m.url }, caption: cap }); else await sock.sendMessage(from, { video: { url: m.url }, caption: cap }); return; } reply = '❌ Gagal!'; } catch (e) { reply = `❌ ${e.message}`; } break;
-                case 'removebg': if (!msg.message.imageMessage) { reply = '❌ Kirim gambar dgn .removebg'; break; } await sock.sendMessage(from, { text: '⏳ *Processing...*' }); try { const buf = await downloadMedia(msg); const url = await removeBG(buf); if (url) { await sock.sendMessage(from, { image: { url }, caption: '✅ *BG Removed!*' }); return; } reply = '❌ Gagal!'; } catch (e) { reply = `❌ ${e.message}`; } break;
-                case 'removewm': if (!msg.message.imageMessage) { reply = '❌ Kirim gambar dgn .removewm'; break; } await sock.sendMessage(from, { text: '⏳ *Processing...*' }); try { const buf = await downloadMedia(msg); const url = await removeWM(buf); if (url) { await sock.sendMessage(from, { image: { url }, caption: '✅ *WM Removed!*' }); return; } reply = '❌ Gagal!'; } catch (e) { reply = `❌ ${e.message}`; } break;
-                case 'anime': if (!msg.message.imageMessage) { reply = '❌ Kirim gambar dgn .anime'; break; } await sock.sendMessage(from, { text: '⏳ *Processing...*' }); try { const buf = await downloadMedia(msg); const path = await toAnime(buf); await sock.sendMessage(from, { image: { url: path }, caption: '✅ *Anime Style!*' }); setTimeout(() => { try { fs.unlinkSync(path); } catch {} }, 5000); return; } catch (e) { reply = `❌ ${e.message}`; } break;
-                case 'ping': reply = '🏓 Pong!'; break;
-                default: reply = `❌ *${cmd}* tidak dikenal!\nKetik *.menu*`;
+                    
+                case 'ig': 
+                    if (!input?.includes('instagram.com')) { 
+                        reply = '❌ Link IG invalid'; 
+                        break; 
+                    } 
+                    await sock.sendMessage(from, { text: '⏳ *Downloading...*' }); 
+                    try { 
+                        const ig = await downloadIG(input); 
+                        if (ig.medias.length > 0) { 
+                            const m = ig.medias[0]; 
+                            const cap = `📥 *IG* | ${ig.info.username}`; 
+                            if (m.type === 'image') 
+                                await sock.sendMessage(from, { image: { url: m.url }, caption: cap }); 
+                            else 
+                                await sock.sendMessage(from, { video: { url: m.url }, caption: cap }); 
+                            return; 
+                        } 
+                        reply = '❌ Gagal!'; 
+                    } catch (e) { 
+                        reply = `❌ ${e.message}`; 
+                    } 
+                    break;
+                    
+                case 'removebg': 
+                    if (!msg.message.imageMessage) { 
+                        reply = '❌ Kirim gambar dgn .removebg'; 
+                        break; 
+                    } 
+                    await sock.sendMessage(from, { text: '⏳ *Processing...*' }); 
+                    try { 
+                        const buf = await downloadMedia(msg); 
+                        const url = await removeBG(buf); 
+                        if (url) { 
+                            await sock.sendMessage(from, { image: { url }, caption: '✅ *BG Removed!*' }); 
+                            return; 
+                        } 
+                        reply = '❌ Gagal!'; 
+                    } catch (e) { 
+                        reply = `❌ ${e.message}`; 
+                    } 
+                    break;
+                    
+                case 'removewm': 
+                    if (!msg.message.imageMessage) { 
+                        reply = '❌ Kirim gambar dgn .removewm'; 
+                        break; 
+                    } 
+                    await sock.sendMessage(from, { text: '⏳ *Processing...*' }); 
+                    try { 
+                        const buf = await downloadMedia(msg); 
+                        const url = await removeWM(buf); 
+                        if (url) { 
+                            await sock.sendMessage(from, { image: { url }, caption: '✅ *WM Removed!*' }); 
+                            return; 
+                        } 
+                        reply = '❌ Gagal!'; 
+                    } catch (e) { 
+                        reply = `❌ ${e.message}`; 
+                    } 
+                    break;
+                    
+                case 'anime': 
+                    if (!msg.message.imageMessage) { 
+                        reply = '❌ Kirim gambar dgn .anime'; 
+                        break; 
+                    } 
+                    await sock.sendMessage(from, { text: '⏳ *Processing...*' }); 
+                    try { 
+                        const buf = await downloadMedia(msg); 
+                        const path = await toAnime(buf); 
+                        await sock.sendMessage(from, { image: { url: path }, caption: '✅ *Anime Style!*' }); 
+                        setTimeout(() => { 
+                            try { fs.unlinkSync(path); } catch {} 
+                        }, 5000); 
+                        return; 
+                    } catch (e) { 
+                        reply = `❌ ${e.message}`; 
+                    } 
+                    break;
+                    
+                case 'ping': 
+                    reply = '🏓 Pong!'; 
+                    break;
+                    
+                default: 
+                    reply = `❌ *${cmd}* tidak dikenal!\nKetik *.menu*`;
             }
-            if (reply) { await sock.sendMessage(from, { text: reply }); }
-        } catch (error) { console.error('❌ Error:', error.message); try { await sock.sendMessage(from, { text: `❌ Error: ${error.message}` }); } catch {} }
+            if (reply) { 
+                await sock.sendMessage(from, { text: reply }); 
+            }
+        } catch (error) { 
+            console.error('❌ Error:', error.message); 
+            try { 
+                await sock.sendMessage(from, { text: `❌ Error: ${error.message}` }); 
+            } catch {} 
+        }
     });
 }
 
